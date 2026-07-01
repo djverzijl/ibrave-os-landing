@@ -14,7 +14,7 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install -y sshpass
 
-      - name: Setup repo + nginx container op Hetzner
+      - name: Setup repo + container (eenmalig, idempotent)
         env:
           HETZNER_PASS: ${{ secrets.HETZNER_SSH_PASSWORD }}
           GITHUB_PAT: ${{ secrets.DEPLOY_PAT }}
@@ -22,39 +22,44 @@ jobs:
           sshpass -p "$HETZNER_PASS" ssh -o StrictHostKeyChecking=no root@46.225.212.58 "
             # Clone als nog niet bestaat
             if [ ! -d /opt/ibrave-os-landing-repo/.git ]; then
-              git clone https://$GITHUB_PAT@github.com/djverzijl/ibrave-os-landing.git /opt/ibrave-os-landing-repo
+              git clone https://${GITHUB_PAT}@github.com/djverzijl/ibrave-os-landing.git /opt/ibrave-os-landing-repo
+              echo 'Repo gekloned'
             fi
 
-            # Nginx container aanmaken als nog niet bestaat
+            # Container aanmaken als nog niet bestaat
+            # Netwerk: ibrave-os_default  |  Poort: 8081
+            # Volume mount zorgt dat git pull direct zichtbaar is — geen restart nodig
             if ! docker ps -a --format '{{.Names}}' | grep -q '^ibrave-os-landing$'; then
               docker run -d \
                 --name ibrave-os-landing \
-                --network ibrave-ai_default \
+                --network ibrave-os_default \
                 -p 8081:80 \
+                -v /opt/ibrave-os-landing-repo:/usr/share/nginx/html:ro \
                 --restart unless-stopped \
                 nginx:alpine
               echo 'Container ibrave-os-landing aangemaakt op poort 8081'
             fi
           "
 
-      - name: Git pull en deploy naar container
+      - name: Git pull (deploy)
         env:
           HETZNER_PASS: ${{ secrets.HETZNER_SSH_PASSWORD }}
           GITHUB_PAT: ${{ secrets.DEPLOY_PAT }}
         run: |
           sshpass -p "$HETZNER_PASS" ssh -o StrictHostKeyChecking=no root@46.225.212.58 "
             cd /opt/ibrave-os-landing-repo && \
-            git remote set-url origin https://$GITHUB_PAT@github.com/djverzijl/ibrave-os-landing.git && \
+            git remote set-url origin https://${GITHUB_PAT}@github.com/djverzijl/ibrave-os-landing.git && \
             git fetch origin && \
             git reset --hard origin/main && \
-            docker cp /opt/ibrave-os-landing-repo/index.html ibrave-os-landing:/usr/share/nginx/html/index.html && \
-            echo 'Deploy OK: \$(date)'
+            echo 'Deploy OK: $(date) — commit $(git rev-parse --short HEAD)'
           "
 
-      - name: Notificeer n8n
-        if: always()
+      - name: Verify live
         run: |
-          curl -s -X POST "${{ secrets.N8N_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"project\":\"ibrave-os-landing\",\"status\":\"${{ job.status }}\",\"ref\":\"${{ github.ref }}\",\"commit\":\"${{ github.sha }}\"}" \
-            || true
+          sleep 3
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://ibrave-os.nl)
+          echo "HTTP status ibrave-os.nl: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "WAARSCHUWING: site geeft $STATUS terug"
+            exit 1
+          fi
