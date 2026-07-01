@@ -1,0 +1,60 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
+      - name: Setup repo + nginx container op Hetzner
+        env:
+          HETZNER_PASS: ${{ secrets.HETZNER_SSH_PASSWORD }}
+          GITHUB_PAT: ${{ secrets.DEPLOY_PAT }}
+        run: |
+          sshpass -p "$HETZNER_PASS" ssh -o StrictHostKeyChecking=no root@46.225.212.58 "
+            # Clone als nog niet bestaat
+            if [ ! -d /opt/ibrave-os-landing-repo/.git ]; then
+              git clone https://$GITHUB_PAT@github.com/djverzijl/ibrave-os-landing.git /opt/ibrave-os-landing-repo
+            fi
+
+            # Nginx container aanmaken als nog niet bestaat
+            if ! docker ps -a --format '{{.Names}}' | grep -q '^ibrave-os-landing$'; then
+              docker run -d \
+                --name ibrave-os-landing \
+                --network ibrave-ai_default \
+                -p 8081:80 \
+                --restart unless-stopped \
+                nginx:alpine
+              echo 'Container ibrave-os-landing aangemaakt op poort 8081'
+            fi
+          "
+
+      - name: Git pull en deploy naar container
+        env:
+          HETZNER_PASS: ${{ secrets.HETZNER_SSH_PASSWORD }}
+          GITHUB_PAT: ${{ secrets.DEPLOY_PAT }}
+        run: |
+          sshpass -p "$HETZNER_PASS" ssh -o StrictHostKeyChecking=no root@46.225.212.58 "
+            cd /opt/ibrave-os-landing-repo && \
+            git remote set-url origin https://$GITHUB_PAT@github.com/djverzijl/ibrave-os-landing.git && \
+            git fetch origin && \
+            git reset --hard origin/main && \
+            docker cp /opt/ibrave-os-landing-repo/index.html ibrave-os-landing:/usr/share/nginx/html/index.html && \
+            echo 'Deploy OK: \$(date)'
+          "
+
+      - name: Notificeer n8n
+        if: always()
+        run: |
+          curl -s -X POST "${{ secrets.N8N_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"project\":\"ibrave-os-landing\",\"status\":\"${{ job.status }}\",\"ref\":\"${{ github.ref }}\",\"commit\":\"${{ github.sha }}\"}" \
+            || true
