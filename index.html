@@ -785,7 +785,7 @@
       <div class="step fade-up delay-1">
         <div class="step-num">1</div>
         <div class="step-title">Account aanmaken</div>
-        <div class="step-desc">30 seconden en je eigen subdomain is actief. Geen creditcard, geen vragen.</div>
+        <div class="step-desc">30 seconden en je account is actief op dashboard.ibrave.nl. Geen creditcard, geen vragen.</div>
       </div>
       <div class="step fade-up delay-2">
         <div class="step-num">2</div>
@@ -962,7 +962,7 @@
           Hoe zit het met mijn eigen subdomain?
           <span class="faq-icon">+</span>
         </button>
-        <div class="faq-a">Bij aanmelden kies je een eigen subdomain (bijv. jouwstudio.ibrave-os.nl). Dit is jouw persoonlijke dashboard-URL. In een toekomstige update is het ook mogelijk om je eigen domein (bijv. dashboard.jouwstudio.nl) te koppelen.</div>
+        <div class="faq-a">Bij aanmelden kies je een korte naam (identifier) voor je account, zoals "jouwstudio". Iedereen logt in via hetzelfde adres: dashboard.ibrave.nl. Je bedrijfsnaam wordt als identifier gebruikt om je tenant te identificeren in het systeem.</div>
       </div>
 
     </div>
@@ -1077,7 +1077,7 @@
         <div class="subdomain-wrap">
           <input class="form-input subdomain-input" id="su-sub" type="text" placeholder="jouwstudio" autocomplete="off" oninput="scheduleSubCheck()" onblur="checkSubdomain()">
           <span class="subdomain-check" id="sub-check-icon"></span>
-          <span class="subdomain-suffix">.ibrave-os.nl</span>
+          <span class="subdomain-suffix">&nbsp;(identifier)</span>
         </div>
         <div id="sub-status" style="font-size:12px;margin-top:6px;height:16px"></div>
       </div>
@@ -1091,7 +1091,7 @@
     <div class="modal-success-state" id="modal-success-state">
       <div class="modal-success-icon">🎉</div>
       <div class="modal-success-title">Je bent erbij!</div>
-      <div class="modal-success-sub" id="modal-success-msg">Je account is aangemaakt. Check je e-mail voor de welkomstmail met je inloggegevens en subdomain-link.</div>
+      <div class="modal-success-sub" id="modal-success-msg">Je account is aangemaakt. Check je e-mail voor de welkomstmail en log in via dashboard.ibrave.nl.</div>
       <br>
       <a href="https://dashboard.ibrave.nl" class="btn-primary" style="display:inline-flex;margin:0 auto;text-decoration:none">
         Naar het dashboard
@@ -1182,7 +1182,7 @@ async function checkSubdomain() {
     });
     const d = await r.json();
     if (d.available) {
-      icon.textContent = '✓'; status.style.color = '#30D158'; status.textContent = val + '.ibrave-os.nl is beschikbaar';
+      icon.textContent = '✓'; status.style.color = '#30D158'; status.textContent = val + ' is beschikbaar';
     } else {
       icon.textContent = '✗'; status.style.color = '#ff453a'; status.textContent = 'Al in gebruik, kies een andere naam';
     }
@@ -1215,7 +1215,7 @@ async function doSignup() {
     const d = await r.json();
     if (d.success) {
       document.getElementById('modal-success-msg').textContent =
-        `Je account is aangemaakt voor ${bedrijf}. Je subdomain is ${sub}.ibrave-os.nl. Bekijk je inbox (${email}) voor de welkomstmail!`;
+        `Je account voor ${bedrijf} is aangemaakt! Check je inbox (${email}) voor de welkomstmail en log in via dashboard.ibrave.nl.`;
       document.getElementById('modal-form-state').style.display = 'none';
       document.getElementById('modal-success-state').style.display = 'block';
     } else {
